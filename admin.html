@@ -104,22 +104,19 @@
     </main>
 
     <script>
-        // --- CONFIGURATION ---
         const API_URL = 'https://applicants-chapter-jamie-second.trycloudflare.com';
 
         // --- 1. SECURITY CHECK ---
         const user = JSON.parse(localStorage.getItem('user'));
         if (!user || !user.is_admin) {
             alert("⚠️ Access Denied. Admins Only.");
-            window.location.href = 'auth.html';
+            window.location.href = 'index.html'; // FIXED
         }
         document.getElementById('adminName').innerText = user.full_name;
 
         // --- 2. DATA LOADERS ---
-
         async function loadBooks() {
             try {
-                // Fixed: URL updated to use API_URL
                 const res = await fetch(`${API_URL}/admin/books`);
                 const books = await res.json();
                 const container = document.getElementById('adminBookList');
@@ -138,7 +135,6 @@
 
         async function loadAttendance() {
             try {
-                // Fixed: URL updated to use API_URL
                 const res = await fetch(`${API_URL}/admin/attendance`);
                 const logs = await res.json();
                 const container = document.getElementById('attendanceLogs');
@@ -156,7 +152,6 @@
 
         async function loadMembers() {
             try {
-                // Fixed: URL updated to use API_URL
                 const res = await fetch(`${API_URL}/admin/members`);
                 const members = await res.json();
                 const container = document.getElementById('memberList');
@@ -176,14 +171,11 @@
             } catch (err) { console.error("Members Load Error:", err); }
         }
 
-        // --- 🖥️ COMPUTER STATION MONITOR LOGIC ---
         async function checkPCStatusAdmin() {
             try {
-                // Fixed: URL updated to use API_URL
                 const res = await fetch(`${API_URL}/pc/status`);
                 const pc = await res.json();
                 const badge = document.getElementById('pcBadge');
-                
                 badge.innerText = pc.is_occupied ? "OCCUPIED" : "AVAILABLE";
                 badge.className = pc.is_occupied ? "badge unavailable" : "badge available";
                 document.getElementById('pcUser').innerText = pc.is_occupied ? `User: ${pc.full_name}` : "User: None";
@@ -192,18 +184,14 @@
 
         async function releasePC() {
             if(confirm("Force end the computer session?")) {
-                // Fixed: URL updated to use API_URL
                 await fetch(`${API_URL}/pc/release`, { method: 'POST' });
                 checkPCStatusAdmin();
             }
         }
 
-        // --- 3. ACTIONS ---
-
         document.getElementById('addBookForm').onsubmit = async (e) => {
             e.preventDefault();
             const inputs = e.target.querySelectorAll('input');
-            // Fixed: URL updated to use API_URL
             await fetch(`${API_URL}/admin/books`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -215,7 +203,6 @@
 
         async function deleteBook(id) {
             if (confirm("Delete this book?")) {
-                // Fixed: URL updated to use API_URL
                 await fetch(`${API_URL}/admin/books/${id}`, { method: 'DELETE' });
                 loadBooks();
             }
@@ -224,7 +211,6 @@
         async function toggleBan(id, currentStatus) {
             const action = currentStatus ? "Unban" : "Ban";
             if (confirm(`Are you sure you want to ${action} this user?`)) {
-                // Fixed: URL updated to use API_URL
                 await fetch(`${API_URL}/admin/members/${id}/ban`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
@@ -234,7 +220,6 @@
             }
         }
 
-        // --- 4. NAVIGATION & TABS ---
         function openTab(evt, tabName) {
             const contents = document.querySelectorAll(".tab-content");
             contents.forEach(tab => tab.classList.remove("active"));
@@ -259,12 +244,12 @@
         }
 
         setInterval(checkPCStatusAdmin, 10000);
-
         loadBooks();
 
+        // FIXED: Logout redirect to index.html
         document.getElementById('adminLogout').onclick = () => {
             localStorage.clear();
-            window.location.href = 'auth.html';
+            window.location.href = 'index.html';
         };
     </script>
 </body>
