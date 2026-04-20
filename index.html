@@ -57,8 +57,15 @@
 
     <script>
         // --- CONFIGURATION ---
-        // This is your public tunnel URL. Ensure cloudflared is running in your terminal!
         const API_URL = 'https://applicants-chapter-jamie-second.trycloudflare.com';
+
+        // --- SESSION CHECK ---
+        // If user is already logged in, skip the login page
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            const userData = JSON.parse(userStr);
+            window.location.href = userData.is_admin ? 'admin.html' : 'dashboard.html';
+        }
 
         const toSignup = document.getElementById('toSignup');
         const toLogin = document.getElementById('toLogin');
@@ -70,7 +77,6 @@
         async function refreshID() {
             autoIDInput.value = "Fetching ID...";
             try {
-                // Fixed: replaced localhost with API_URL
                 const response = await fetch(`${API_URL}/next-id`);
                 const data = await response.json();
                 autoIDInput.value = data.nextId;
@@ -80,7 +86,6 @@
             }
         }
 
-        // Trigger ID fetch when switching to signup
         toSignup.onclick = () => {
             container.classList.add('active-signup');
             refreshID(); 
@@ -96,17 +101,14 @@
             signupBtn.disabled = true;
             signupBtn.innerText = "Registering...";
             signupBtn.style.opacity = "0.7";
-            signupBtn.style.cursor = "not-allowed";
 
             const inputs = signupForm.querySelectorAll('input');
-            
             const userData = {
                 full_name: inputs[0].value,
                 password: inputs[2].value
             };
 
             try {
-                // Fixed: replaced localhost with API_URL
                 const response = await fetch(`${API_URL}/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -128,7 +130,6 @@
                 signupBtn.disabled = false;
                 signupBtn.innerText = "Register Now";
                 signupBtn.style.opacity = "1";
-                signupBtn.style.cursor = "pointer";
                 refreshID();
             }
         };
@@ -145,7 +146,6 @@
             };
 
             try {
-                // Fixed: replaced localhost with API_URL
                 const response = await fetch(`${API_URL}/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
