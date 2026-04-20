@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | San Bartolome Library</title>
+    <link rel="stylesheet" href="dashboard-style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-logo">
+            <i class="fas fa-book-reader"></i> 
+            <span>San Bartolome Library</span>
+        </div>
+        <div class="nav-user">
+            <span id="userName">Student</span>
+            <button id="logoutBtn" class="btn-logout">End Session <i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </nav>
+
+    <main class="dashboard-container">
+        <header class="welcome-banner">
+            <h1>Welcome back, <span id="welcomeName">Member</span>!</h1>
+            <p>Your library session is currently active.</p>
+        </header>
+
+        <section class="stats-grid">
+            <div class="stat-card">
+                <i class="fas fa-clock"></i>
+                <div class="stat-info">
+                    <h3>Time In</h3>
+                    <p id="timeInDisplay">Calculating...</p>
+                </div>
+            </div>
+
+            <div class="stat-card" style="border-left: 5px solid #2e7d32;">
+                <i class="fas fa-desktop"></i>
+                <div class="stat-info">
+                    <h3>Computer Station</h3>
+                    <p id="pcStatusText">Checking...</p>
+                    <button id="pcActionBtn" class="btn-main" style="display:none; padding: 5px 10px; font-size: 0.8rem; margin-top: 5px;"></button>
+                </div>
+            </div>
+        </section>
+
+        <section class="content-area">
+            <div class="card">
+                <div class="catalog-header">
+                    <h2>📚 Library Catalog</h2>
+                    <div class="search-wrapper">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="catalogSearch" placeholder="Find a book by title or author...">
+                    </div>
+                </div>
+
+                <div id="bookGrid" class="book-grid">
+                    </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+    // --- CONFIGURATION ---
+    const API_URL = 'https://graduated-redeem-movements-ascii.trycloudflare.com';
+
+    // --- 1. SESSION & AUTH ---
+    const userStr = localStorage.getItem('user');
+    const logId = localStorage.getItem('current_log_id');
+    const dbTimeIn = localStorage.getItem('actual_time_in'); 
+
+    if (!userStr || !logId || !dbTimeIn) {
+        window.location.href = 'auth.html'; 
+    }
+
+    const userData = JSON.parse(userStr);
+    document.getElementById('userName').innerText = userData.full_name;
+    document.getElementById('welcomeName').innerText = userData.full_name.split(' ')[0];
+    
+    const frozenTime = new Date(dbTimeIn);
+    document.getElementById('timeInDisplay').innerText = frozenTime.toLocaleTimeString([], {
+        hour: '2-digit', 
+        minute: '2-digit'
+    });
+
+    // --- 🖥️ 2. NEW: COMPUTER STATION LOGIC ---
+    async function updatePCStatus() {
+        try {
+            // Fixed: replaced localhost with API_URL
+            const res = await fetch(`${API_URL}/pc/status`);
+            const pc = await res.json();
+            const btn = document.getElementById('pcActionBtn');
+            const statusText = document.getElementById('pcStatusText');
+
+            if (pc.is_occupied) {
+                if (pc.current_user_id === userData.id) {
+                    statusText.innerHTML = `<span style="color: #2e7d32;">✅ You are using this PC</span>`;
+                    btn.innerText = "Return PC";
+                    btn.style.display = "block";
+                    btn.style.background = "#e57373"; 
+                    btn.onclick = releasePC;
+                } else {
+                    statusText.innerHTML = `🔴 Occupied by <b>${pc.full_name}</b>`;
+                    btn.style.display = "none";
+                }
+            } else {
+                statusText.innerHTML = `🟢 Available for use`;
+                btn.innerText = "Borrow PC";
+                btn.style.display = "block";
+                btn.style.background = "#2e7d32"; 
+                btn.onclick = borrowPC;
+            }
+        } catch (err) { console.error("PC Status Error:", err); }
+    }
+
+    async function borrowPC() {
+        // Fixed: replaced localhost with API_URL
+        await fetch(`${API_URL}/pc/borrow`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userData.id })
+        });
+        updatePCStatus();
+    }
+
+    async function releasePC() {
+        // Fixed: replaced localhost with API_URL
+        await fetch(`${API_URL}/pc/release`, { method: 'POST' });
+        updatePCStatus();
+    }
+
+    setInterval(updatePCStatus, 5000);
+    updatePCStatus(); 
+
+    // --- 3. DYNAMIC CATALOG LOGIC ---
+    let allBooks = []; 
+
+    async function loadCatalog() {
+        try {
+            // Fixed: replaced localhost with API_URL
+            const response = await fetch(`${API_URL}/admin/books`);
+            allBooks = await response.json();
+            displayBooks(allBooks);
+        } catch (err) {
+            console.error("Catalog load error:", err);
+            document.getElementById('bookGrid').innerHTML = '<p class="empty-msg">Error loading catalog.</p>';
+        }
+    }
+
+    function displayBooks(books) {
+        const grid = document.getElementById('bookGrid');
+        grid.innerHTML = ''; 
+
+        if (books.length === 0) {
+            grid.innerHTML = '<p class="empty-msg">No books match your search.</p>';
+            return;
+        }
+
+        books.forEach(book => {
+            const statusClass = book.status.toLowerCase();
+            const card = `
+                <div class="book-card">
+                    <div class="book-icon"><i class="fas fa-book"></i></div>
+                    <h4>${book.title}</h4>
+                    <p>by ${book.author}</p>
+                    <span class="badge ${statusClass}">${book.status}</span>
+                </div>
+            `;
+            grid.innerHTML += card;
+        });
+    }
+
+    loadCatalog();
+
+    document.getElementById('catalogSearch').addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const filtered = allBooks.filter(book => 
+            book.title.toLowerCase().includes(searchTerm) || 
+            book.author.toLowerCase().includes(searchTerm)
+        );
+        displayBooks(filtered);
+    });
+
+    // --- 4. LOGOUT ---
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+        try {
+            // Fixed: replaced localhost with API_URL
+            const response = await fetch(`${API_URL}/logout`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ log_id: logId })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                alert(`Session Ended!\nTotal Stay: ${Math.round(result.log.duration_minutes)} minutes.`);
+                localStorage.clear();
+                window.location.href = 'auth.html';
+            }
+        } catch (err) {
+            localStorage.clear();
+            window.location.href = 'auth.html';
+        }
+    });
+    </script>
+</body>
+</html>

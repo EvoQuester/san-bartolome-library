@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>San Bartolome Library | Portal</title>
+    <link rel="stylesheet" href="auth-style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+    <div class="auth-wrapper">
+        <div class="auth-container" id="authContainer">
+            
+            <div class="auth-box login" id="loginBox">
+                <h2>Welcome Back!</h2>
+                <p class="subtitle">Access your library dashboard</p>
+                
+                <form id="loginForm">
+                    <div class="input-field">
+                        <label><i class="fas fa-id-card"></i> Library ID</label>
+                        <input type="text" placeholder="e.g. LIB-2026-001" required>
+                    </div>
+                    <div class="input-field">
+                        <label><i class="fas fa-lock"></i> Password</label>
+                        <input type="password" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn-main">Login to My Library</button>
+                </form>
+                <p class="toggle-text">New member? <a href="javascript:void(0)" id="toSignup">Create an account</a></p>
+            </div>
+
+            <div class="auth-box signup" id="signupBox">
+                <h2>New Member?</h2>
+                <p class="signup-desc">Register now to borrow books and reserve your study spot in the Barangay.</p>
+                
+                <form id="signupForm">
+                    <div class="input-field">
+                        <label>Full Name</label>
+                        <input type="text" placeholder="Enter your full name" required>
+                    </div>
+                    <div class="input-field">
+                        <label>Assigned Library ID (Automatic)</label>
+                        <input type="text" id="autoLibraryId" style="background: #e8f5e9; font-weight: bold; color: #2e7d32;" readonly>
+                    </div>
+                    <div class="input-field">
+                        <label>Create Password</label>
+                        <input type="password" placeholder="Minimum 6 characters" required>
+                    </div>
+                    <button type="submit" id="signupBtn" class="btn-alt">Register Now</button>
+                </form>
+                <p class="toggle-text" style="color: white;">Already have an account? <a href="javascript:void(0)" id="toLogin" style="color: #fff; font-weight: bold; text-decoration: underline;">Login here</a></p>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        // This is your public tunnel URL. Ensure cloudflared is running in your terminal!
+        const API_URL = 'https://graduated-redeem-movements-ascii.trycloudflare.com';
+
+        const toSignup = document.getElementById('toSignup');
+        const toLogin = document.getElementById('toLogin');
+        const container = document.getElementById('authContainer');
+        const autoIDInput = document.getElementById('autoLibraryId');
+        const signupBtn = document.getElementById('signupBtn');
+
+        // --- DYNAMIC ID FETCHING ---
+        async function refreshID() {
+            autoIDInput.value = "Fetching ID...";
+            try {
+                // Fixed: replaced localhost with API_URL
+                const response = await fetch(`${API_URL}/next-id`);
+                const data = await response.json();
+                autoIDInput.value = data.nextId;
+            } catch (err) {
+                console.error("ID Fetch Error:", err);
+                autoIDInput.value = "Server Offline";
+            }
+        }
+
+        // Trigger ID fetch when switching to signup
+        toSignup.onclick = () => {
+            container.classList.add('active-signup');
+            refreshID(); 
+        };
+
+        toLogin.onclick = () => container.classList.remove('active-signup');
+
+        // --- REGISTRATION LOGIC ---
+        const signupForm = document.getElementById('signupForm');
+        signupForm.onsubmit = async (e) => {
+            e.preventDefault();
+            
+            signupBtn.disabled = true;
+            signupBtn.innerText = "Registering...";
+            signupBtn.style.opacity = "0.7";
+            signupBtn.style.cursor = "not-allowed";
+
+            const inputs = signupForm.querySelectorAll('input');
+            
+            const userData = {
+                full_name: inputs[0].value,
+                password: inputs[2].value
+            };
+
+            try {
+                // Fixed: replaced localhost with API_URL
+                const response = await fetch(`${API_URL}/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ Registration Successful!\n\nYour Library ID is: ${result.library_id}\nPlease remember this to login.`);
+                    container.classList.remove('active-signup');
+                    signupForm.reset();
+                } else {
+                    alert("❌ Registration Error: " + result.message);
+                }
+            } catch (err) {
+                alert("Server connection failed. Is the tunnel running?");
+            } finally {
+                signupBtn.disabled = false;
+                signupBtn.innerText = "Register Now";
+                signupBtn.style.opacity = "1";
+                signupBtn.style.cursor = "pointer";
+                refreshID();
+            }
+        };
+
+        // --- LOGIN LOGIC ---
+        const loginForm = document.getElementById('loginForm');
+        loginForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const inputs = loginForm.querySelectorAll('input');
+            
+            const loginData = {
+                library_id: inputs[0].value,
+                password: inputs[1].value
+            };
+
+            try {
+                // Fixed: replaced localhost with API_URL
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(loginData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    localStorage.setItem('user', JSON.stringify(result.user));
+                    localStorage.setItem('current_log_id', result.log_id);
+                    localStorage.setItem('actual_time_in', result.time_in);
+
+                    if (result.user.is_admin) {
+                        window.location.href = 'admin.html';
+                    } else {
+                        window.location.href = 'dashboard.html';
+                    }
+                } else {
+                    alert("❌ Login Failed: " + result.message);
+                }
+            } catch (err) {
+                alert("Server connection failed. Is the tunnel running?");
+            }
+        };
+    </script>
+</body>
+</html>

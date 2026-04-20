@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Portal | San Bartolome Library</title>
+    <link rel="stylesheet" href="admin-style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-user-shield"></i>
+            <span>Admin Panel</span>
+        </div>
+        <nav class="menu">
+            <button class="tab-btn active" onclick="openTab(event, 'booksTab')"><i class="fas fa-book"></i> Books</button>
+            <button class="tab-btn" onclick="openTab(event, 'attendanceTab')"><i class="fas fa-clipboard-list"></i> Attendance</button>
+            <button class="tab-btn" onclick="openTab(event, 'membersTab')"><i class="fas fa-users"></i> Members</button>
+            <hr>
+            <button id="adminLogout" class="logout-link"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </nav>
+    </aside>
+
+    <main class="content">
+        <header class="top-bar">
+            <h1 id="tabTitle">Books Management</h1>
+            <div class="admin-info">
+                <span id="adminName">Librarian</span>
+            </div>
+        </header>
+
+        <section id="booksTab" class="tab-content active">
+            <div class="admin-card">
+                <h3>Add New Book</h3>
+                <form id="addBookForm" class="inline-form">
+                    <input type="text" placeholder="Book Title" required>
+                    <input type="text" placeholder="Author" required>
+                    <button type="submit" class="btn-add">Add to Catalog</button>
+                </form>
+            </div>
+            
+            <div class="admin-card">
+                <h3>Current Collection</h3>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Author</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminBookList"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="attendanceTab" class="tab-content">
+            <div class="admin-card" style="border-left: 5px solid #2e7d32;">
+                <h3>🖥️ Computer Station Monitor</h3>
+                <div id="pcStatusAdmin">
+                    <p style="margin-bottom: 10px;">Status: <span id="pcBadge" class="badge">Checking...</span></p>
+                    <p id="pcUser" style="font-weight: bold; margin-bottom: 15px;">User: None</p>
+                    <button class="btn-delete" onclick="releasePC()"><i class="fas fa-power-off"></i> Force Logout PC</button>
+                </div>
+            </div>
+
+            <div class="admin-card">
+                <h3>Live Attendance Logs</h3>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Library ID</th>
+                            <th>Time In</th>
+                            <th>Time Out</th>
+                            <th>Duration (m)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendanceLogs"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="membersTab" class="tab-content">
+            <div class="admin-card">
+                <h3>Registered Members</h3>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Library ID</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="memberList"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- CONFIGURATION ---
+        const API_URL = 'https://graduated-redeem-movements-ascii.trycloudflare.com';
+
+        // --- 1. SECURITY CHECK ---
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user || !user.is_admin) {
+            alert("⚠️ Access Denied. Admins Only.");
+            window.location.href = 'auth.html';
+        }
+        document.getElementById('adminName').innerText = user.full_name;
+
+        // --- 2. DATA LOADERS ---
+
+        async function loadBooks() {
+            try {
+                // Fixed: URL updated to use API_URL
+                const res = await fetch(`${API_URL}/admin/books`);
+                const books = await res.json();
+                const container = document.getElementById('adminBookList');
+                container.innerHTML = books.map(book => `
+                    <tr>
+                        <td>${book.title}</td>
+                        <td>${book.author}</td>
+                        <td><span class="badge ${book.status.toLowerCase()}">${book.status}</span></td>
+                        <td>
+                            <button class="btn-delete" onclick="deleteBook(${book.id})"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) { console.error("Books Load Error:", err); }
+        }
+
+        async function loadAttendance() {
+            try {
+                // Fixed: URL updated to use API_URL
+                const res = await fetch(`${API_URL}/admin/attendance`);
+                const logs = await res.json();
+                const container = document.getElementById('attendanceLogs');
+                container.innerHTML = logs.map(log => `
+                    <tr>
+                        <td>${log.full_name}</td>
+                        <td>${log.library_id}</td>
+                        <td>${new Date(log.time_in).toLocaleString()}</td>
+                        <td>${log.time_out ? new Date(log.time_out).toLocaleString() : '<b>Active</b>'}</td>
+                        <td>${log.duration_minutes ? Math.round(log.duration_minutes) : '--'}</td>
+                    </tr>
+                `).join('');
+            } catch (err) { console.error("Logs Load Error:", err); }
+        }
+
+        async function loadMembers() {
+            try {
+                // Fixed: URL updated to use API_URL
+                const res = await fetch(`${API_URL}/admin/members`);
+                const members = await res.json();
+                const container = document.getElementById('memberList');
+                container.innerHTML = members.map(m => `
+                    <tr>
+                        <td>${m.full_name}</td>
+                        <td>${m.library_id}</td>
+                        <td>${m.is_admin ? 'Admin' : 'Student'}</td>
+                        <td><span class="badge ${m.is_banned ? 'unavailable' : 'available'}">${m.is_banned ? 'Banned' : 'Active'}</span></td>
+                        <td>
+                            ${!m.is_admin ? `<button class="btn-ban" onclick="toggleBan(${m.id}, ${m.is_banned})">
+                                ${m.is_banned ? 'Unban' : 'Ban'}
+                            </button>` : '--'}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) { console.error("Members Load Error:", err); }
+        }
+
+        // --- 🖥️ COMPUTER STATION MONITOR LOGIC ---
+        async function checkPCStatusAdmin() {
+            try {
+                // Fixed: URL updated to use API_URL
+                const res = await fetch(`${API_URL}/pc/status`);
+                const pc = await res.json();
+                const badge = document.getElementById('pcBadge');
+                
+                badge.innerText = pc.is_occupied ? "OCCUPIED" : "AVAILABLE";
+                badge.className = pc.is_occupied ? "badge unavailable" : "badge available";
+                document.getElementById('pcUser').innerText = pc.is_occupied ? `User: ${pc.full_name}` : "User: None";
+            } catch (err) { console.error("PC Status Error:", err); }
+        }
+
+        async function releasePC() {
+            if(confirm("Force end the computer session?")) {
+                // Fixed: URL updated to use API_URL
+                await fetch(`${API_URL}/pc/release`, { method: 'POST' });
+                checkPCStatusAdmin();
+            }
+        }
+
+        // --- 3. ACTIONS ---
+
+        document.getElementById('addBookForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const inputs = e.target.querySelectorAll('input');
+            // Fixed: URL updated to use API_URL
+            await fetch(`${API_URL}/admin/books`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: inputs[0].value, author: inputs[1].value })
+            });
+            e.target.reset();
+            loadBooks();
+        };
+
+        async function deleteBook(id) {
+            if (confirm("Delete this book?")) {
+                // Fixed: URL updated to use API_URL
+                await fetch(`${API_URL}/admin/books/${id}`, { method: 'DELETE' });
+                loadBooks();
+            }
+        }
+
+        async function toggleBan(id, currentStatus) {
+            const action = currentStatus ? "Unban" : "Ban";
+            if (confirm(`Are you sure you want to ${action} this user?`)) {
+                // Fixed: URL updated to use API_URL
+                await fetch(`${API_URL}/admin/members/${id}/ban`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_banned: !currentStatus })
+                });
+                loadMembers();
+            }
+        }
+
+        // --- 4. NAVIGATION & TABS ---
+        function openTab(evt, tabName) {
+            const contents = document.querySelectorAll(".tab-content");
+            contents.forEach(tab => tab.classList.remove("active"));
+            const buttons = document.querySelectorAll(".tab-btn");
+            buttons.forEach(btn => btn.classList.remove("active"));
+            document.getElementById(tabName).classList.add("active");
+            evt.currentTarget.classList.add("active");
+            
+            const titles = {
+                'booksTab': 'Books Management',
+                'attendanceTab': 'Attendance Logs',
+                'membersTab': 'Member Controls'
+            };
+            document.getElementById('tabTitle').innerText = titles[tabName];
+
+            if (tabName === 'booksTab') loadBooks();
+            if (tabName === 'attendanceTab') {
+                loadAttendance();
+                checkPCStatusAdmin(); 
+            }
+            if (tabName === 'membersTab') loadMembers();
+        }
+
+        setInterval(checkPCStatusAdmin, 10000);
+
+        loadBooks();
+
+        document.getElementById('adminLogout').onclick = () => {
+            localStorage.clear();
+            window.location.href = 'auth.html';
+        };
+    </script>
+</body>
+</html>
