@@ -70,8 +70,9 @@
     const logId = localStorage.getItem('current_log_id');
     const dbTimeIn = localStorage.getItem('actual_time_in'); 
 
+    // FIXED: Redirect to index.html if no session
     if (!userStr || !logId || !dbTimeIn) {
-        window.location.href = 'auth.html'; 
+        window.location.href = 'index.html'; 
     }
 
     const userData = JSON.parse(userStr);
@@ -84,10 +85,9 @@
         minute: '2-digit'
     });
 
-    // --- 🖥️ 2. NEW: COMPUTER STATION LOGIC ---
+    // --- 🖥️ 2. COMPUTER STATION LOGIC ---
     async function updatePCStatus() {
         try {
-            // Fixed: replaced localhost with API_URL
             const res = await fetch(`${API_URL}/pc/status`);
             const pc = await res.json();
             const btn = document.getElementById('pcActionBtn');
@@ -115,7 +115,6 @@
     }
 
     async function borrowPC() {
-        // Fixed: replaced localhost with API_URL
         await fetch(`${API_URL}/pc/borrow`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -125,7 +124,6 @@
     }
 
     async function releasePC() {
-        // Fixed: replaced localhost with API_URL
         await fetch(`${API_URL}/pc/release`, { method: 'POST' });
         updatePCStatus();
     }
@@ -138,7 +136,6 @@
 
     async function loadCatalog() {
         try {
-            // Fixed: replaced localhost with API_URL
             const response = await fetch(`${API_URL}/admin/books`);
             allBooks = await response.json();
             displayBooks(allBooks);
@@ -185,7 +182,6 @@
     // --- 4. LOGOUT ---
     document.getElementById('logoutBtn').addEventListener('click', async () => {
         try {
-            // Fixed: replaced localhost with API_URL
             const response = await fetch(`${API_URL}/logout`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -196,11 +192,11 @@
                 const result = await response.json();
                 alert(`Session Ended!\nTotal Stay: ${Math.round(result.log.duration_minutes)} minutes.`);
                 localStorage.clear();
-                window.location.href = 'auth.html';
+                window.location.href = 'index.html'; // FIXED
             }
         } catch (err) {
             localStorage.clear();
-            window.location.href = 'auth.html';
+            window.location.href = 'index.html'; // FIXED
         }
     });
     </script>
